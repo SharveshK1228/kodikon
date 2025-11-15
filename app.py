@@ -4,27 +4,14 @@ import json
 import os
 import re
 from datetime import datetime
-from dotenv import load_dotenv
 import google.generativeai as genai
 
 # =======================================
-# Load Gemini API key
+# Load Gemini API key from Streamlit Secrets
 # =======================================
-load_dotenv()
-API_KEY = os.getenv("GEMINI_API_KEY")
-
-llm_enabled = True
-if not API_KEY:
-    llm_enabled = False
-else:
-    genai.configure(api_key=API_KEY)
-
-# Initialize Gemini model
-try:
-    model = genai.GenerativeModel("gemini-1.5-flash")
-except:
-    llm_enabled = False
-
+api_key = st.secrets["GEMINI_API_KEY"]
+genai.configure(api_key=api_key)
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 # =======================================
 # Abusive Words List
@@ -34,7 +21,6 @@ CUSS_WORDS = [
 ]
 
 STATS_FILE = "stats.json"
-
 
 # =======================================
 # Utility Functions
@@ -48,11 +34,9 @@ def load_stats():
     except:
         return {}
 
-
 def save_stats(stats):
     with open(STATS_FILE, "w", encoding="utf-8") as f:
         json.dump(stats, f, indent=2)
-
 
 def detect_cuss_words(text):
     found = {}
@@ -64,31 +48,21 @@ def detect_cuss_words(text):
             found[word] = len(matches)
     return found
 
-
-def rewrite_with_gemini(msg):
-    """
-    Rewrites message using Gemini Flash model.
-    Keeps context but removes abusive tone.
-    """
-    if not llm_enabled:
-        return "[Gemini LLM is not configured.]"
-
-    prompt = f"""
-Rewrite the following message in a polite, respectful, and non-abusive tone
-without changing its meaning or key details.
+def rewrite_with_gemini(message):
+    try:
+        prompt = f"""
+Rewrite the following message into a polite, non-abusive tone
+while keeping the same meaning and emotional context.
 
 Return ONLY the rewritten message. No explanations.
 
 Message:
-{msg}
+{message}
 """
-
-    try:
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
         return f"[Gemini Error: {e}]"
-
 
 def stats_to_df(stats):
     rows = []
@@ -98,22 +72,20 @@ def stats_to_df(stats):
             "total_messages": info.get("total_messages", 0),
             "total_cuss": info.get("total_cuss", 0),
             "last_message": info.get("last_message", ""),
-            "last_time": info.get("last_time", "")
+            "last_time": info.get("last_time", ""),
         })
     return pd.DataFrame(rows)
-
 
 # =======================================
 # STREAMLIT UI
 # =======================================
 st.set_page_config(page_title="Cuss Word Monitor (Gemini)", layout="wide")
 st.title("🧠 Federated Cuss Word Monitoring (Gemini Edition)")
-st.caption("Detect abusive words, track user behavior, and tone-down content using Gemini API.")
+st.caption("Detect abusive words, track user behavior, and rewrite messages using Gemini API.")
 
 stats = load_stats()
 
 tab1, tab2 = st.tabs(["🔍 Analyze Message", "📊 Dashboard"])
-
 
 # =======================================
 # TAB 1 — Analyze
@@ -123,8 +95,6 @@ with tab1:
 
     user = st.text_input("User ID", "user_1")
     message = st.text_area("Message", height=150)
-
-    use_llm = st.checkbox("Rewrite using Gemini LLM", True)
 
     if st.button("Analyze"):
         if not message.strip():
@@ -136,18 +106,14 @@ with tab1:
                 st.error(f"⚠ Detected abusive words: {', '.join(found.keys())}")
                 st.json(found)
             else:
-                st.success("No abusive words detected.")
+                st.success("No abusive words detected 🎉")
 
             st.markdown("### Original Message")
             st.code(message)
 
-            # LLM rewriting
-            if use_llm:
-                st.markdown("### ✨ Gemini-Toned Message")
-                rewritten = rewrite_with_gemini(message)
-                st.code(rewritten)
-            else:
-                st.info("LLM rewriting disabled.")
+            st.markdown("### ✨ Gemini-Toned Version")
+            rewritten = rewrite_with_gemini(message)
+            st.code(rewritten)
 
             # Update Stats
             user_stats = stats.get(user, {
@@ -164,7 +130,6 @@ with tab1:
 
             stats[user] = user_stats
             save_stats(stats)
-
 
 # =======================================
 # TAB 2 — Dashboard
