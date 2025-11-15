@@ -1,0 +1,186 @@
+import streamlit as st
+import pandas as pd
+import json
+import os
+import re
+from datetime import datetime
+from dotenv import load_dotenv
+import google.generativeai as genai
+
+# =======================================
+# Load Gemini API key
+# =======================================
+load_dotenv()
+API_KEY = os.getenv("GEMINI_API_KEY")
+
+llm_enabled = True
+if not API_KEY:
+    llm_enabled = False
+else:
+    genai.configure(api_key=API_KEY)
+
+# Initialize Gemini model
+try:
+    model = genai.GenerativeModel("gemini-1.5-flash")
+except:
+    llm_enabled = False
+
+
+# =======================================
+# Abusive Words List
+# =======================================
+CUSS_WORDS = [
+    "fuck", "shit", "bitch", "bastard", "asshole", "idiot"
+]
+
+STATS_FILE = "stats.json"
+
+
+# =======================================
+# Utility Functions
+# =======================================
+def load_stats():
+    if not os.path.exists(STATS_FILE):
+        return {}
+    try:
+        with open(STATS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+
+def save_stats(stats):
+    with open(STATS_FILE, "w", encoding="utf-8") as f:
+        json.dump(stats, f, indent=2)
+
+
+def detect_cuss_words(text):
+    found = {}
+    text_lower = text.lower()
+    for word in CUSS_WORDS:
+        pattern = r"\b" + re.escape(word) + r"\b"
+        matches = re.findall(pattern, text_lower)
+        if matches:
+            found[word] = len(matches)
+    return found
+
+
+def rewrite_with_gemini(msg):
+    """
+    Rewrites message using Gemini Flash model.
+    Keeps context but removes abusive tone.
+    """
+    if not llm_enabled:
+        return "[Gemini LLM is not configured.]"
+
+    prompt = f"""
+Rewrite the following message in a polite, respectful, and non-abusive tone
+without changing its meaning or key details.
+
+Return ONLY the rewritten message. No explanations.
+
+Message:
+{msg}
+"""
+
+    try:
+        response = model.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        return f"[Gemini Error: {e}]"
+
+
+def stats_to_df(stats):
+    rows = []
+    for user, info in stats.items():
+        rows.append({
+            "user": user,
+            "total_messages": info.get("total_messages", 0),
+            "total_cuss": info.get("total_cuss", 0),
+            "last_message": info.get("last_message", ""),
+            "last_time": info.get("last_time", "")
+        })
+    return pd.DataFrame(rows)
+
+
+# =======================================
+# STREAMLIT UI
+# =======================================
+st.set_page_config(page_title="Cuss Word Monitor (Gemini)", layout="wide")
+st.title("🧠 Federated Cuss Word Monitoring (Gemini Edition)")
+st.caption("Detect abusive words, track user behavior, and tone-down content using Gemini API.")
+
+stats = load_stats()
+
+tab1, tab2 = st.tabs(["🔍 Analyze Message", "📊 Dashboard"])
+
+
+# =======================================
+# TAB 1 — Analyze
+# =======================================
+with tab1:
+    st.subheader("Analyze Message & Rewrite")
+
+    user = st.text_input("User ID", "user_1")
+    message = st.text_area("Message", height=150)
+
+    use_llm = st.checkbox("Rewrite using Gemini LLM", True)
+
+    if st.button("Analyze"):
+        if not message.strip():
+            st.warning("Enter a message.")
+        else:
+            found = detect_cuss_words(message)
+
+            if found:
+                st.error(f"⚠ Detected abusive words: {', '.join(found.keys())}")
+                st.json(found)
+            else:
+                st.success("No abusive words detected.")
+
+            st.markdown("### Original Message")
+            st.code(message)
+
+            # LLM rewriting
+            if use_llm:
+                st.markdown("### ✨ Gemini-Toned Message")
+                rewritten = rewrite_with_gemini(message)
+                st.code(rewritten)
+            else:
+                st.info("LLM rewriting disabled.")
+
+            # Update Stats
+            user_stats = stats.get(user, {
+                "total_messages": 0,
+                "total_cuss": 0,
+                "last_message": "",
+                "last_time": ""
+            })
+
+            user_stats["total_messages"] += 1
+            user_stats["total_cuss"] += sum(found.values())
+            user_stats["last_message"] = message
+            user_stats["last_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            stats[user] = user_stats
+            save_stats(stats)
+
+
+# =======================================
+# TAB 2 — Dashboard
+# =======================================
+with tab2:
+    st.subheader("User Abuse Statistics")
+
+    df = stats_to_df(stats)
+    if df.empty:
+        st.info("No messages analyzed yet.")
+    else:
+        st.dataframe(df, use_container_width=True)
+
+        st.markdown("### 🔥 Abusive Word Count by User")
+        chart_df = df.set_index("user")["total_cuss"]
+        st.bar_chart(chart_df)
+
+        st.markdown("### 📅 Latest User Messages")
+        st.dataframe(df[["user", "last_message", "last_time"]])
