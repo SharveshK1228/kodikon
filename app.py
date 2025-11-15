@@ -11,11 +11,21 @@ import google.generativeai as genai
 # =======================================
 api_key = "AIzaSyCyUDvhpsAU3LlwcfPcvSC-3YUniD31Fl8"
 genai.configure(api_key=api_key)
-response = genai.generate(
-    model="models/gemini-1.5-flash",
-    prompt="Rewrite this politely..."
-)
-rewritten = response.text
+model = genai.GenerativeModel("gemini-1.0-pro")
+
+def rewrite_with_gemini(message):
+    prompt = f"""
+Rewrite the following message politely while keeping the same meaning:
+
+{message}
+
+Return ONLY the rewritten message.
+"""
+    try:
+        response = model.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"[Gemini Error: {e}]"
 
 # =======================================
 # Abusive Words List
@@ -153,6 +163,7 @@ with tab2:
 
         st.markdown("### 📅 Latest User Messages")
         st.dataframe(df[["user", "last_message", "last_time"]])
+
 
 
 
