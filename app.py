@@ -9,7 +9,7 @@ import google.generativeai as genai
 # =======================================
 # Load Gemini API key from Streamlit Secrets
 # =======================================
-api_key = st.secrets["AIzaSyCyUDvhpsAU3LlwcfPcvSC-3YUniD31Fl8"]
+api_key = st.secrets[AIzaSyCyUDvhpsAU3LlwcfPcvSC-3YUniD31Fl8]
 genai.configure(api_key=api_key)
 model = genai.GenerativeModel("gemini-1.5-flash")
 
@@ -149,4 +149,5 @@ with tab2:
 
         st.markdown("### 📅 Latest User Messages")
         st.dataframe(df[["user", "last_message", "last_time"]])
+
 
