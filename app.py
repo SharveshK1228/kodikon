@@ -11,7 +11,7 @@ import google.generativeai as genai
 # =======================================
 api_key = "AIzaSyCyUDvhpsAU3LlwcfPcvSC-3YUniD31Fl8"
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel("gemini-1.0-pro")
+
 
 def rewrite_with_gemini(message):
     prompt = f"""
@@ -170,6 +170,7 @@ with tab2:
 
         st.markdown("### 📅 Latest User Messages")
         st.dataframe(df[["user", "last_message", "last_time"]])
+
 
 
 
