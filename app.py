@@ -11,7 +11,11 @@ import google.generativeai as genai
 # =======================================
 api_key = "AIzaSyCyUDvhpsAU3LlwcfPcvSC-3YUniD31Fl8"
 genai.configure(api_key=api_key)
-model = genai.GenerativeModel("gemini-1.5-flash-002")
+response = genai.generate(
+    model="models/gemini-1.5-flash",
+    prompt="Rewrite this politely..."
+)
+rewritten = response.text
 
 # =======================================
 # Abusive Words List
@@ -149,6 +153,7 @@ with tab2:
 
         st.markdown("### 📅 Latest User Messages")
         st.dataframe(df[["user", "last_message", "last_time"]])
+
 
 
 
