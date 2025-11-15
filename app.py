@@ -26,6 +26,13 @@ Return ONLY the rewritten message.
         return response.text
     except Exception as e:
         return f"[Gemini Error: {e}]"
+if st.button("Show available models"):
+    try:
+        models = genai.list_models()
+        st.write([m.name for m in models])
+    except Exception as e:
+        st.error(f"Error listing models: {e}")
+
 
 # =======================================
 # Abusive Words List
@@ -163,6 +170,7 @@ with tab2:
 
         st.markdown("### 📅 Latest User Messages")
         st.dataframe(df[["user", "last_message", "last_time"]])
+
 
 
 
