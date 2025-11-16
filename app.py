@@ -17,7 +17,7 @@ API_KEY = "AIzaSyCz8ZroOwEQ3sLB4gR3xrN47VxOThb5hOw"
 genai.configure(api_key=API_KEY)
 
 try:
-     model = genai.GenerativeModel('gemini-2.0-flash')
+    model = genai.GenerativeModel('gemini-2.0-flash')
 except Exception as e:
     st.error(f"Failed loading Gemini model: {e}")
     st.stop()
@@ -63,8 +63,8 @@ def rewrite_with_gemini(message):
 Rewrite the following message into a polite tone WITHOUT changing its meaning. 
 Return ONLY the rewritten sentence:
 
-"{message}"""
-
+"{message}"
+""
         res = model.generate_content(prompt)
         return res.text.strip()
     except Exception as e:
@@ -119,19 +119,23 @@ with tab1:
             score = global_model.predict_score(text)
             abusive = global_model.is_abusive(text)
 
-            st.write(f"### Global Model Abuse Score: `{score:.2f}`")
+            st.markdown(f"### Global Model Abuse Score: `{score:.2f}`")
+
             if abusive:
-                st.error("⚠ Marked as abusive")
+                st.markdown(
+                    "<span style='color:#ff4d4d; font-weight:600;'>⚠ Marked as abusive</span>",
+                    unsafe_allow_html=True
+                )
                 label = 1
             else:
-                st.success("✅ Marked as clean")
+                st.markdown(
+                    "<span style='color:#4dff88; font-weight:600;'>✓ Marked as clean</span>",
+                    unsafe_allow_html=True
+                )
                 label = 0
 
-            # Local cuss detection (non-ML)
+            # Local explicit cuss detection
             found = detect_cuss_words(text)
-            if found:
-                st.write("Detected explicit cuss words:")
-                st.json(found)
 
             # LLM rewriting
             rewritten = rewrite_with_gemini(text)
@@ -142,13 +146,13 @@ with tab1:
             st.markdown("#### Polite (Gemini Rewritten)")
             st.code(rewritten)
 
-            # Assign message to a simulated FL client
+            # Assign to FL client
             clients = st.session_state.clients
             idx = hash(user_id) % len(clients)
             client = clients[idx]
             client.add_sample(text, label)
 
-            # Add to dashboard stats
+            # Save dashboard stats
             st.session_state.messages.append({
                 "user": user_id,
                 "text": text,
@@ -157,7 +161,7 @@ with tab1:
                 "client": client.client_id
             })
 
-            # persist stats.json
+            # Persist stats.json
             user_stats = stats.get(user_id, {
                 "total_messages": 0,
                 "total_cuss": 0,
@@ -218,4 +222,3 @@ with tab3:
 
         st.write("### Client Metrics")
         st.json(result["client_metrics"])
-
