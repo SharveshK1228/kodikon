@@ -22,7 +22,7 @@ except Exception as e:
 # 🚨 FIX 2: Instantiate the model. This was the missing line causing your error.
 try:
     # You can change 'gemini-1.5-flash' to 'gemini-pro' or another model
-    model = genai.GenerativeModel('models/chat-bison-001')
+    model = genai.GenerativeModel('gemini-1.5-flash')
 except Exception as e:
     st.error(f"Failed to load Gemini model. Error: {e}")
     st.stop()
@@ -175,6 +175,7 @@ with tab2:
                 st.write([m.name for m in models_list])
             except Exception as e:
                 st.error(f"Error listing models: {e}")
+
 
 
 
