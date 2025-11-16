@@ -202,7 +202,7 @@ with tab1:
                 st.markdown("<span class='badge-bad'>⚠ Abusive content detected</span>", unsafe_allow_html=True)
                 label = 1
             else:
-                st.markdown("<span class='badge-clean'>✓ Message is clean</span>", unsafe_allow_html=True)
+                st.markdown("<span class='badge-clean'>✓ Message is read</span>", unsafe_allow_html=True)
                 label = 0
 
             st.markdown("#### Original Message")
@@ -266,5 +266,6 @@ with tab3:
 
         st.success(f"FL Round {result['round']} completed! {result['num_updates']} clients contributed.")
         st.json(result["client_metrics"])
+
 
 
