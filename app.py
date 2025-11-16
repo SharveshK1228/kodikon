@@ -50,6 +50,54 @@ if "clients" not in st.session_state:
     ]
 if "messages" not in st.session_state:
     st.session_state.messages = []  # for the table/chart if you want
+    user_id = st.text_input("User ID / Name", value="user_1")
+text = st.text_area("Message", height=150)
+
+if st.button("Analyze & Rewrite"):
+    if not text.strip():
+        st.warning("Enter a message first.")
+    else:
+        global_model = st.session_state.global_model
+
+        # 1️⃣ Use FL global model for detection
+        score = global_model.predict_score(text)
+        abusive = global_model.is_abusive(text)
+
+        st.write(f"**Model abuse score:** {score:.2f}")
+        if abusive:
+            st.error("⚠ Marked as abusive by federated model")
+            label = 1
+        else:
+            st.success("✅ Marked as clean by federated model")
+            label = 0
+
+        # 2️⃣ Call Gemini for tone-down rewrite (you already have this)
+        #    I'll just show the shape, plug in your working code here:
+        # response = model.generate_content(...)
+        # rewritten_text = response.text
+        rewritten_text = "<<< your Gemini output here >>>"
+
+        st.markdown("**Original message**")
+        st.code(text)
+        st.markdown("**Tone-downed (Gemini)**")
+        st.code(rewritten_text)
+
+        # 3️⃣ Assign this sample to a client (simulating device)
+        #    simplest: round-robin based on user name
+        clients = st.session_state.clients
+        idx = hash(user_id) % len(clients)
+        client = clients[idx]
+        client.add_sample(text, label)
+
+        # 4️⃣ Optional: store for table/graph
+        st.session_state.messages.append({
+            "user": user_id,
+            "text": text,
+            "label": label,
+            "client_id": client.client_id,
+            "score": score,
+        })
+
 # =======================================
 # Utility Functions
 # =======================================
@@ -187,6 +235,7 @@ with tab2:
                 st.write([m.name for m in models_list])
             except Exception as e:
                 st.error(f"Error listing models: {e}")
+
 
 
 
