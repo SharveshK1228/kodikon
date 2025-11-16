@@ -1,6 +1,6 @@
-# ================================================================
-# IMPORTS & INITIAL SETUP
-# ================================================================
+# =================================================================
+# IMPORTS
+# =================================================================
 import streamlit as st
 import pandas as pd
 import json
@@ -10,27 +10,102 @@ from datetime import datetime
 import google.generativeai as genai
 from fl_core import GlobalModel, ClientNode, run_federated_round
 
-# ================================================================
-# GEMINI SETUP
-# ================================================================
+# =================================================================
+# MODERN UI THEME CSS (glassy, minimal, dashboard look)
+# =================================================================
+st.markdown("""
+<style>
+
+/* -------------- GENERAL PAGE STYLE ---------------- */
+body {
+    background-color: #0E1117;
+    color: #E1E1E1;
+}
+
+section.main > div {
+    padding-top: 1rem;
+}
+
+/* -------------- TITLES ---------------- */
+h1,h2,h3,h4 {
+    font-family: 'Inter', sans-serif !important;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+}
+
+/* -------------- INPUTS + BUTTONS ---------------- */
+.stTextInput, .stTextArea textarea {
+    background-color: #1E1E1E !important;
+    border-radius: 10px !important;
+    border: 1px solid #333 !important;
+    color: white !important;
+}
+
+.stTextArea textarea:focus {
+    border: 1px solid #4CAF50 !important;
+}
+
+.stButton>button {
+    background-color: #4CAF50 !important;
+    color: white !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    padding: 8px 18px;
+    border: none;
+}
+
+.stButton>button:hover {
+    background-color: #5FD364 !important;
+}
+
+/* -------------- SMALL BADGES ---------------- */
+.badge-clean {
+    color:#4DFF88;
+    font-weight:600;
+    font-size: 1.0rem;
+}
+
+.badge-bad {
+    color:#FF4D4D;
+    font-weight:600;
+    font-size: 1.0rem;
+}
+
+/* Code box style */
+code {
+    font-size: 0.95rem !important;
+    border-radius: 8px !important;
+}
+
+/* Tabs style */
+.stTabs [role="tablist"] {
+    gap: 3rem;
+}
+
+.stTabs [role="tab"] {
+    font-size: 1.1rem !important;
+    padding: 0.8rem 1.2rem !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+# =================================================================
+# GEMINI MODEL SETUP
+# =================================================================
 API_KEY = "AIzaSyCz8ZroOwEQ3sLB4gR3xrN47VxOThb5hOw"
 genai.configure(api_key=API_KEY)
+model = genai.GenerativeModel("gemini-pro")
 
-try:
-    model = genai.GenerativeModel("gemini-pro")
-except Exception as e:
-    st.error(f"Failed loading Gemini model: {e}")
-    st.stop()
-
-# ================================================================
+# =================================================================
 # CONSTANTS
-# ================================================================
+# =================================================================
 CUSS_WORDS = ["fuck", "shit", "bitch", "bastard", "asshole", "idiot"]
 STATS_FILE = "stats.json"
 
-# ================================================================
-# SESSION INIT
-# ================================================================
+# =================================================================
+# SESSION
+# =================================================================
 if "global_model" not in st.session_state:
     st.session_state.global_model = GlobalModel(threshold=0.4)
 
@@ -44,9 +119,9 @@ if "clients" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# ================================================================
+# =================================================================
 # FUNCTIONS
-# ================================================================
+# =================================================================
 def detect_cuss_words(text):
     found = {}
     text_lower = text.lower()
@@ -58,13 +133,13 @@ def detect_cuss_words(text):
     return found
 
 def rewrite_with_gemini(message):
-    try:
-        prompt = f"""
-Rewrite the following message into a polite tone WITHOUT changing its meaning. 
+    prompt = f"""
+Rewrite the following message politely WITHOUT changing the meaning.
 Return ONLY the rewritten sentence:
 
 "{message}"
-"""
+""
+    try:
         res = model.generate_content(prompt)
         return res.text.strip()
     except Exception as e:
@@ -90,135 +165,105 @@ def stats_to_df(stats):
         })
     return pd.DataFrame(rows)
 
-# ================================================================
-# PAGE CONFIG
-# ================================================================
-st.set_page_config(page_title="Federated Cuss Monitor", layout="wide")
-st.title("🧠 Federated Cuss Word Monitoring + Gemini Rewrite")
+# =================================================================
+# PAGE
+# =================================================================
+st.set_page_config(page_title="EventHorizon – Federated Toxicity Monitor", layout="wide")
+
+st.title("✨ EventHorizon – Federated Cuss Word Monitoring + Gemini Rewrite")
+st.caption("A modern, federated, privacy-safe content moderation pipeline.")
+
 stats = load_stats()
 
-# ================================================================
+# =================================================================
 # TABS
-# ================================================================
-tab1, tab2, tab3 = st.tabs(["🔍 Analyze Message", "📊 Dashboard", "🛰 Federated Learning"])
+# =================================================================
+tab1, tab2, tab3 = st.tabs(["💬 Analyze Message", "📊 Dashboard", "🛰 Federated Learning"])
 
-# ================================================================
-# TAB 1 — ANALYZE MESSAGE
-# ================================================================
+# =================================================================
+# TAB 1: ANALYZE
+# =================================================================
 with tab1:
-    st.subheader("Analyze & Rewrite")
+    st.subheader("Message Analyzer")
     
-    user_id = st.text_input("User ID", value="user_1", key="user_id_input")
-    text = st.text_area("Message", height=150, key="main_message_input")
+    user_id = st.text_input("User ID", "user_1", key="user_input")
+    text = st.text_area("Enter Message", height=140, key="msg_input")
 
-    if st.button("Analyze & Rewrite", key="analyze_btn_main"):
+    if st.button("Analyze & Rewrite", key="analyze_btn"):
         if not text.strip():
-            st.warning("Please enter a message.")
+            st.warning("Please type a message.")
         else:
-            global_model = st.session_state.global_model
-            score = global_model.predict_score(text)
-            abusive = global_model.is_abusive(text)
-
-            st.markdown(f"### Global Model Abuse Score: `{score:.2f}`")
+            # No global score shown!
+            model_obj = st.session_state.global_model
+            abusive = model_obj.is_abusive(text)
+            found = detect_cuss_words(text)
+            rewritten = rewrite_with_gemini(text)
 
             if abusive:
-                st.markdown(
-                    "<span style='color:#ff4d4d; font-weight:600;'>⚠ Marked as abusive</span>",
-                    unsafe_allow_html=True
-                )
+                st.markdown("<span class='badge-bad'>⚠ Abusive content detected</span>", unsafe_allow_html=True)
                 label = 1
             else:
-                st.markdown(
-                    "<span style='color:#4dff88; font-weight:600;'>✓ Marked as clean</span>",
-                    unsafe_allow_html=True
-                )
+                st.markdown("<span class='badge-clean'>✓ Message is clean</span>", unsafe_allow_html=True)
                 label = 0
-
-            # Local explicit cuss detection
-            found = detect_cuss_words(text)
-
-            # LLM rewriting
-            rewritten = rewrite_with_gemini(text)
 
             st.markdown("#### Original Message")
             st.code(text)
 
-            st.markdown("#### Polite (Gemini Rewritten)")
+            st.markdown("#### Polite Rewritten Message (via Gemini)")
             st.code(rewritten)
 
-            # Assign to FL client
-            clients = st.session_state.clients
-            idx = hash(user_id) % len(clients)
-            client = clients[idx]
-            client.add_sample(text, label)
+            # Save to client for FL
+            idx = hash(user_id) % len(st.session_state.clients)
+            st.session_state.clients[idx].add_sample(text, label)
 
-            # Save dashboard stats
-            st.session_state.messages.append({
-                "user": user_id,
-                "text": text,
-                "label": label,
-                "score": score,
-                "client": client.client_id
-            })
-
-            # Persist stats.json
-            user_stats = stats.get(user_id, {
+            # Store for dashboard
+            stats_entry = stats.get(user_id, {
                 "total_messages": 0,
                 "total_cuss": 0,
                 "last_message": "",
                 "last_time": ""
             })
-            user_stats["total_messages"] += 1
-            user_stats["total_cuss"] += sum(found.values()) if found else 0
-            user_stats["last_message"] = text
-            user_stats["last_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            stats_entry["total_messages"] += 1
+            stats_entry["total_cuss"] += sum(found.values()) if found else 0
+            stats_entry["last_message"] = text
+            stats_entry["last_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            stats[user_id] = user_stats
+            stats[user_id] = stats_entry
             save_stats(stats)
 
-# ================================================================
-# TAB 2 — DASHBOARD
-# ================================================================
+# =================================================================
+# TAB 2: DASHBOARD
+# =================================================================
 with tab2:
-    st.subheader("User Abuse Statistics")
+    st.subheader("User Behavior Dashboard")
 
     df = stats_to_df(stats)
     if df.empty:
-        st.info("No messages analyzed yet.")
+        st.info("No activity yet.")
     else:
         st.dataframe(df, use_container_width=True)
 
-        st.markdown("### Abusive Word Count by User")
+        st.markdown("### 🔥 Cuss Count by User")
         st.bar_chart(df.set_index("user")["total_cuss"])
 
-        st.markdown("### Latest Messages")
+        st.markdown("### 🕒 Recent Messages")
         st.dataframe(df[["user", "last_message", "last_time"]])
 
-    with st.expander("Models available"):
-        if st.button("Show available models", key="model_list_btn"):
-            try:
-                models = genai.list_models()
-                st.write([m.name for m in models])
-            except Exception as e:
-                st.error(f"Error listing models: {e}")
-
-# ================================================================
-# TAB 3 — FEDERATED LEARNING
-# ================================================================
+# =================================================================
+# TAB 3: FEDERATED LEARNING
+# =================================================================
 with tab3:
-    st.subheader("Simulated Federated Learning")
+    st.subheader("Federated Learning Simulation")
 
-    threshold = st.slider("Client Accuracy Threshold", 0.0, 1.0, 0.4, 0.05, key="fl_threshold")
+    threshold = st.slider("Client participation threshold", 0.0, 1.0, 0.4, 0.05)
 
-    if st.button("Run 1 Federated Round", key="fl_round_btn"):
+    if st.button("Run Federated Round", key="fl_btn"):
         result = run_federated_round(
             st.session_state.global_model,
             st.session_state.clients,
             threshold=threshold
         )
 
-        st.success(f"Round {result['round']} completed. {result['num_updates']} clients contributed.")
-        st.write(f"Updated Global Weight: `{result['global_weight']:.3f}`")
-
-        st.write("### Client Metrics")
+        st.success(f"FL Round {result['round']} completed! {result['num_updates']} clients contributed.")
         st.json(result["client_metrics"])
