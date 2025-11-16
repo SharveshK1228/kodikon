@@ -1,3 +1,6 @@
+# ================================================================
+# IMPORTS & INITIAL SETUP
+# ================================================================
 import streamlit as st
 import pandas as pd
 import json
@@ -5,115 +8,45 @@ import os
 import re
 from datetime import datetime
 import google.generativeai as genai
-import streamlit as st
 from fl_core import GlobalModel, ClientNode, run_federated_round
 
-# =======================================
-# Load Gemini API key from Streamlit Secrets
-# =======================================
-# 🚨 FIX 1: Load key securely from secrets.
-# DO NOT hardcode your key.
-try:
-    # Assumes you have "GEMINI_API_KEY = 'YourKey...'" in .streamlit/secrets.toml
-    api_key = "AIzaSyCz8ZroOwEQ3sLB4gR3xrN47VxOThb5hOw"
-    genai.configure(api_key=api_key)
-except Exception as e:
-    st.error(f"Failed to configure Gemini API. Is 'GEMINI_API_KEY' in your Streamlit secrets? Error: {e}")
-    st.stop() # Stop the app if the key is missing
+# ================================================================
+# GEMINI SETUP
+# ================================================================
+API_KEY = "AIzaSyCz8ZroOwEQ3sLB4gR3xrN47VxOThb5hOw"
+genai.configure(api_key=API_KEY)
 
-# 🚨 FIX 2: Instantiate the model. This was the missing line causing your error.
 try:
-    # You can change 'gemini-1.5-flash' to 'gemini-pro' or another model
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    model = genai.GenerativeModel("gemini-pro")
 except Exception as e:
-    st.error(f"Failed to load Gemini model. Error: {e}")
+    st.error(f"Failed loading Gemini model: {e}")
     st.stop()
 
-# 🚨 FIX 3: Removed the first, incomplete `rewrite_with_gemini` function.
-
-# =======================================
-# Abusive Words List
-# =======================================
-CUSS_WORDS = [
-    "fuck", "shit", "bitch", "bastard", "asshole", "idiot"
-]
-
+# ================================================================
+# CONSTANTS
+# ================================================================
+CUSS_WORDS = ["fuck", "shit", "bitch", "bastard", "asshole", "idiot"]
 STATS_FILE = "stats.json"
-# ---------- INIT FEDERATED STATE IN SESSION ----------
+
+# ================================================================
+# SESSION INIT
+# ================================================================
 if "global_model" not in st.session_state:
     st.session_state.global_model = GlobalModel(threshold=0.4)
+
 if "clients" not in st.session_state:
     st.session_state.clients = [
         ClientNode("client_1"),
         ClientNode("client_2"),
-        ClientNode("client_3"),
+        ClientNode("client_3")
     ]
+
 if "messages" not in st.session_state:
-    st.session_state.messages = []  # for the table/chart if you want
-    user_id = st.text_input("User ID / Name", value="user_1")
-text = st.text_area("Message", height=150)
+    st.session_state.messages = []
 
-if st.button("Analyze & Rewrite"):
-    if not text.strip():
-        st.warning("Enter a message first.")
-    else:
-        global_model = st.session_state.global_model
-
-        # 1️⃣ Use FL global model for detection
-        score = global_model.predict_score(text)
-        abusive = global_model.is_abusive(text)
-
-        st.write(f"**Model abuse score:** {score:.2f}")
-        if abusive:
-            st.error("⚠ Marked as abusive by federated model")
-            label = 1
-        else:
-            st.success("✅ Marked as clean by federated model")
-            label = 0
-
-        # 2️⃣ Call Gemini for tone-down rewrite (you already have this)
-        #    I'll just show the shape, plug in your working code here:
-        # response = model.generate_content(...)
-        # rewritten_text = response.text
-        rewritten_text = "<<< your Gemini output here >>>"
-
-        st.markdown("**Original message**")
-        st.code(text)
-        st.markdown("**Tone-downed (Gemini)**")
-        st.code(rewritten_text)
-
-        # 3️⃣ Assign this sample to a client (simulating device)
-        #    simplest: round-robin based on user name
-        clients = st.session_state.clients
-        idx = hash(user_id) % len(clients)
-        client = clients[idx]
-        client.add_sample(text, label)
-
-        # 4️⃣ Optional: store for table/graph
-        st.session_state.messages.append({
-            "user": user_id,
-            "text": text,
-            "label": label,
-            "client_id": client.client_id,
-            "score": score,
-        })
-
-# =======================================
-# Utility Functions
-# =======================================
-def load_stats():
-    if not os.path.exists(STATS_FILE):
-        return {}
-    try:
-        with open(STATS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return {}
-
-def save_stats(stats):
-    with open(STATS_FILE, "w", encoding="utf-8") as f:
-        json.dump(stats, f, indent=2)
-
+# ================================================================
+# FUNCTIONS
+# ================================================================
 def detect_cuss_words(text):
     found = {}
     text_lower = text.lower()
@@ -127,19 +60,23 @@ def detect_cuss_words(text):
 def rewrite_with_gemini(message):
     try:
         prompt = f"""
-Rewrite the following message into a polite, non-abusive tone
-while keeping the same meaning and emotional context.
+Rewrite the following message into a polite tone WITHOUT changing its meaning. 
+Return ONLY the rewritten sentence:
 
-Return ONLY the rewritten message. No explanations.
+"{message}"""
 
-Message:
-{message}
-"""
-        response = model.generate_content(prompt)
-        return response.text.strip()
+        res = model.generate_content(prompt)
+        return res.text.strip()
     except Exception as e:
-        st.error(f"Gemini rewrite failed: {e}")
         return f"[Gemini Error: {e}]"
+
+def load_stats():
+    if not os.path.exists(STATS_FILE):
+        return {}
+    return json.load(open(STATS_FILE, "r"))
+
+def save_stats(stats):
+    json.dump(stats, open(STATS_FILE, "w"), indent=2)
 
 def stats_to_df(stats):
     rows = []
@@ -149,68 +86,95 @@ def stats_to_df(stats):
             "total_messages": info.get("total_messages", 0),
             "total_cuss": info.get("total_cuss", 0),
             "last_message": info.get("last_message", ""),
-            "last_time": info.get("last_time", ""),
+            "last_time": info.get("last_time", "")
         })
     return pd.DataFrame(rows)
 
-# =======================================
-# STREAMLIT UI
-# =======================================
-st.set_page_config(page_title="Cuss Word Monitor (Gemini)", layout="wide")
-st.title("🧠 Federated Cuss Word Monitoring (Gemini Edition)")
-st.caption("Detect abusive words, track user behavior, and rewrite messages using Gemini API.")
-
+# ================================================================
+# PAGE CONFIG
+# ================================================================
+st.set_page_config(page_title="Federated Cuss Monitor", layout="wide")
+st.title("🧠 Federated Cuss Word Monitoring + Gemini Rewrite")
 stats = load_stats()
 
-tab1, tab2 = st.tabs(["🔍 Analyze Message", "📊 Dashboard"])
+# ================================================================
+# TABS
+# ================================================================
+tab1, tab2, tab3 = st.tabs(["🔍 Analyze Message", "📊 Dashboard", "🛰 Federated Learning"])
 
-# =======================================
-# TAB 1 — Analyze
-# =======================================
+# ================================================================
+# TAB 1 — ANALYZE MESSAGE
+# ================================================================
 with tab1:
-    st.subheader("Analyze Message & Rewrite")
+    st.subheader("Analyze & Rewrite")
+    
+    user_id = st.text_input("User ID", value="user_1", key="user_id_input")
+    text = st.text_area("Message", height=150, key="main_message_input")
 
-    user = st.text_input("User ID", "user_1")
-    message = st.text_area("Message", height=150)
-
-    if st.button("Analyze"):
-        if not message.strip():
-            st.warning("Enter a message.")
+    if st.button("Analyze & Rewrite", key="analyze_btn_main"):
+        if not text.strip():
+            st.warning("Please enter a message.")
         else:
-            found = detect_cuss_words(message)
+            global_model = st.session_state.global_model
+            score = global_model.predict_score(text)
+            abusive = global_model.is_abusive(text)
 
-            if found:
-                st.error(f"⚠ Detected abusive words: {', '.join(found.keys())}")
-                st.json(found)
+            st.write(f"### Global Model Abuse Score: `{score:.2f}`")
+            if abusive:
+                st.error("⚠ Marked as abusive")
+                label = 1
             else:
-                st.success("No abusive words detected 🎉")
+                st.success("✅ Marked as clean")
+                label = 0
 
-            st.markdown("### Original Message")
-            st.code(message)
+            # Local cuss detection (non-ML)
+            found = detect_cuss_words(text)
+            if found:
+                st.write("Detected explicit cuss words:")
+                st.json(found)
 
-            st.markdown("### ✨ Gemini-Toned Version")
-            rewritten = rewrite_with_gemini(message)
+            # LLM rewriting
+            rewritten = rewrite_with_gemini(text)
+
+            st.markdown("#### Original Message")
+            st.code(text)
+
+            st.markdown("#### Polite (Gemini Rewritten)")
             st.code(rewritten)
 
-            # Update Stats
-            user_stats = stats.get(user, {
+            # Assign message to a simulated FL client
+            clients = st.session_state.clients
+            idx = hash(user_id) % len(clients)
+            client = clients[idx]
+            client.add_sample(text, label)
+
+            # Add to dashboard stats
+            st.session_state.messages.append({
+                "user": user_id,
+                "text": text,
+                "label": label,
+                "score": score,
+                "client": client.client_id
+            })
+
+            # persist stats.json
+            user_stats = stats.get(user_id, {
                 "total_messages": 0,
                 "total_cuss": 0,
                 "last_message": "",
                 "last_time": ""
             })
-
             user_stats["total_messages"] += 1
-            user_stats["total_cuss"] += sum(found.values())
-            user_stats["last_message"] = message
+            user_stats["total_cuss"] += sum(found.values()) if found else 0
+            user_stats["last_message"] = text
             user_stats["last_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-            stats[user] = user_stats
+            stats[user_id] = user_stats
             save_stats(stats)
 
-# =======================================
-# TAB 2 — Dashboard
-# =======================================
+# ================================================================
+# TAB 2 — DASHBOARD
+# ================================================================
 with tab2:
     st.subheader("User Abuse Statistics")
 
@@ -220,25 +184,37 @@ with tab2:
     else:
         st.dataframe(df, use_container_width=True)
 
-        st.markdown("### 🔥 Abusive Word Count by User")
-        chart_df = df.set_index("user")["total_cuss"]
-        st.bar_chart(chart_df)
+        st.markdown("### Abusive Word Count by User")
+        st.bar_chart(df.set_index("user")["total_cuss"])
 
-        st.markdown("### 📅 Latest User Messages")
+        st.markdown("### Latest Messages")
         st.dataframe(df[["user", "last_message", "last_time"]])
-    
-    # 🚨 FIX 4: Moved the debug button here
-    with st.expander("Admin / Debug"):
-        if st.button("Show available models"):
+
+    with st.expander("Models available"):
+        if st.button("Show available models", key="model_list_btn"):
             try:
-                models_list = genai.list_models()
-                st.write([m.name for m in models_list])
+                models = genai.list_models()
+                st.write([m.name for m in models])
             except Exception as e:
                 st.error(f"Error listing models: {e}")
 
+# ================================================================
+# TAB 3 — FEDERATED LEARNING
+# ================================================================
+with tab3:
+    st.subheader("Simulated Federated Learning")
 
+    threshold = st.slider("Client Accuracy Threshold", 0.0, 1.0, 0.4, 0.05, key="fl_threshold")
 
+    if st.button("Run 1 Federated Round", key="fl_round_btn"):
+        result = run_federated_round(
+            st.session_state.global_model,
+            st.session_state.clients,
+            threshold=threshold
+        )
 
+        st.success(f"Round {result['round']} completed. {result['num_updates']} clients contributed.")
+        st.write(f"Updated Global Weight: `{result['global_weight']:.3f}`")
 
-
-
+        st.write("### Client Metrics")
+        st.json(result["client_metrics"])
