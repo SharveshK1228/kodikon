@@ -137,7 +137,7 @@ def rewrite_with_gemini(message):
 Rewrite the following message politely WITHOUT changing the meaning.
 Return ONLY the rewritten sentence:
 
-"{message}""""
+"{message}"""
     try:
         res = model.generate_content(prompt)
         return res.text.strip()
@@ -266,4 +266,5 @@ with tab3:
 
         st.success(f"FL Round {result['round']} completed! {result['num_updates']} clients contributed.")
         st.json(result["client_metrics"])
+
 
