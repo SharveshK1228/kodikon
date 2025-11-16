@@ -17,7 +17,7 @@ API_KEY = "AIzaSyCz8ZroOwEQ3sLB4gR3xrN47VxOThb5hOw"
 genai.configure(api_key=API_KEY)
 
 try:
-    model = genai.GenerativeModel("gemini-pro")
+     model = genai.GenerativeModel('gemini-2.0-flash')
 except Exception as e:
     st.error(f"Failed loading Gemini model: {e}")
     st.stop()
@@ -218,3 +218,4 @@ with tab3:
 
         st.write("### Client Metrics")
         st.json(result["client_metrics"])
+
