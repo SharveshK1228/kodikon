@@ -95,7 +95,7 @@ code {
 # =================================================================
 API_KEY = "AIzaSyCz8ZroOwEQ3sLB4gR3xrN47VxOThb5hOw"
 genai.configure(api_key=API_KEY)
-model = genai.GenerativeModel("gemini-pro")
+ model = genai.GenerativeModel('gemini-2.0-flash')
 
 # =================================================================
 # CONSTANTS
@@ -266,6 +266,7 @@ with tab3:
 
         st.success(f"FL Round {result['round']} completed! {result['num_updates']} clients contributed.")
         st.json(result["client_metrics"])
+
 
 
 
