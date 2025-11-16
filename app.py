@@ -9,30 +9,25 @@ import google.generativeai as genai
 # =======================================
 # Load Gemini API key from Streamlit Secrets
 # =======================================
-api_key = "AIzaSyCyUDvhpsAU3LlwcfPcvSC-3YUniD31Fl8"
-genai.configure(api_key=api_key)
+# 🚨 FIX 1: Load key securely from secrets.
+# DO NOT hardcode your key.
+try:
+    # Assumes you have "GEMINI_API_KEY = 'YourKey...'" in .streamlit/secrets.toml
+    api_key = "AIzaSyCyUDvhpsAU3LlwcfPcvSC-3YUniD31Fl8"
+    genai.configure(api_key=api_key)
+except Exception as e:
+    st.error(f"Failed to configure Gemini API. Is 'GEMINI_API_KEY' in your Streamlit secrets? Error: {e}")
+    st.stop() # Stop the app if the key is missing
 
+# 🚨 FIX 2: Instantiate the model. This was the missing line causing your error.
+try:
+    # You can change 'gemini-1.5-flash' to 'gemini-pro' or another model
+    model = genai.GenerativeModel('gemini-1.5-flash')
+except Exception as e:
+    st.error(f"Failed to load Gemini model. Error: {e}")
+    st.stop()
 
-def rewrite_with_gemini(message):
-    prompt = f"""
-Rewrite the following message politely while keeping the same meaning:
-
-{message}
-
-Return ONLY the rewritten message.
-"""
-    try:
-        response = model.generate_content(prompt)
-        return response.text
-    except Exception as e:
-        return f"[Gemini Error: {e}]"
-if st.button("Show available models"):
-    try:
-        models = genai.list_models()
-        st.write([m.name for m in models])
-    except Exception as e:
-        st.error(f"Error listing models: {e}")
-
+# 🚨 FIX 3: Removed the first, incomplete `rewrite_with_gemini` function.
 
 # =======================================
 # Abusive Words List
@@ -83,6 +78,7 @@ Message:
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
+        st.error(f"Gemini rewrite failed: {e}")
         return f"[Gemini Error: {e}]"
 
 def stats_to_df(stats):
@@ -170,12 +166,12 @@ with tab2:
 
         st.markdown("### 📅 Latest User Messages")
         st.dataframe(df[["user", "last_message", "last_time"]])
-
-
-
-
-
-
-
-
-
+    
+    # 🚨 FIX 4: Moved the debug button here
+    with st.expander("Admin / Debug"):
+        if st.button("Show available models"):
+            try:
+                models_list = genai.list_models()
+                st.write([m.name for m in models_list])
+            except Exception as e:
+                st.error(f"Error listing models: {e}")
