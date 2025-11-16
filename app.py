@@ -17,7 +17,7 @@ API_KEY = "AIzaSyCz8ZroOwEQ3sLB4gR3xrN47VxOThb5hOw"
 genai.configure(api_key=API_KEY)
 
 try:
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    model = genai.GenerativeModel("gemini-pro")
 except Exception as e:
     st.error(f"Failed loading Gemini model: {e}")
     st.stop()
@@ -64,7 +64,7 @@ Rewrite the following message into a polite tone WITHOUT changing its meaning.
 Return ONLY the rewritten sentence:
 
 "{message}"
-""
+"""
         res = model.generate_content(prompt)
         return res.text.strip()
     except Exception as e:
