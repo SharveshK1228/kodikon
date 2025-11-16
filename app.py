@@ -13,7 +13,7 @@ import google.generativeai as genai
 # DO NOT hardcode your key.
 try:
     # Assumes you have "GEMINI_API_KEY = 'YourKey...'" in .streamlit/secrets.toml
-    api_key = "AIzaSyCyUDvhpsAU3LlwcfPcvSC-3YUniD31Fl8"
+    api_key = "AIzaSyCz8ZroOwEQ3sLB4gR3xrN47VxOThb5hOw"
     genai.configure(api_key=api_key)
 except Exception as e:
     st.error(f"Failed to configure Gemini API. Is 'GEMINI_API_KEY' in your Streamlit secrets? Error: {e}")
@@ -175,5 +175,6 @@ with tab2:
                 st.write([m.name for m in models_list])
             except Exception as e:
                 st.error(f"Error listing models: {e}")
+
 
 
