@@ -5,6 +5,8 @@ import os
 import re
 from datetime import datetime
 import google.generativeai as genai
+import streamlit as st
+from fl_core import GlobalModel, ClientNode, run_federated_round
 
 # =======================================
 # Load Gemini API key from Streamlit Secrets
@@ -37,7 +39,17 @@ CUSS_WORDS = [
 ]
 
 STATS_FILE = "stats.json"
-
+# ---------- INIT FEDERATED STATE IN SESSION ----------
+if "global_model" not in st.session_state:
+    st.session_state.global_model = GlobalModel(threshold=0.4)
+if "clients" not in st.session_state:
+    st.session_state.clients = [
+        ClientNode("client_1"),
+        ClientNode("client_2"),
+        ClientNode("client_3"),
+    ]
+if "messages" not in st.session_state:
+    st.session_state.messages = []  # for the table/chart if you want
 # =======================================
 # Utility Functions
 # =======================================
@@ -175,6 +187,7 @@ with tab2:
                 st.write([m.name for m in models_list])
             except Exception as e:
                 st.error(f"Error listing models: {e}")
+
 
 
 
